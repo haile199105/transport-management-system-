@@ -1,0 +1,6 @@
+{
+  "name": "Bus Transport Ledger",
+  "description": "A collaborative real-time cost and income management system for bus transport starting from Hawassa, shared between the manager and the owner.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
