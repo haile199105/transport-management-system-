@@ -5,9 +5,10 @@ import ManagerView from './components/ManagerView';
 import OwnerView from './components/OwnerView';
 import GlobalChat from './components/GlobalChat';
 import ItemComments from './components/ItemComments';
-import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle, Database, CheckCircle } from 'lucide-react';
+import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle, Database, CheckCircle, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isSupabaseConfigured, fetchLedgerFromSupabase, saveLedgerToSupabase } from './supabaseClient';
+import PINOverlay from './components/PINOverlay';
 
 const INITIAL_FALLBACK_STATE: LedgerState = {
   previousNetIncome: 120000,
@@ -98,6 +99,9 @@ const INITIAL_FALLBACK_STATE: LedgerState = {
 };
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('bus_ledger_authenticated') === 'true';
+  });
   const [ledger, setLedger] = useState<LedgerState | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -428,6 +432,18 @@ export default function App() {
   const selectedTxObj = getSelectedTxObject();
 
 
+  if (!isAuthenticated) {
+    return (
+      <PINOverlay
+        onUnlock={() => {
+          setIsAuthenticated(true);
+          sessionStorage.setItem('bus_ledger_authenticated', 'true');
+        }}
+      />
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16 flex flex-col">
       {/* Upper Navigation Bar */}
@@ -495,6 +511,17 @@ export default function App() {
                 title="Force refresh database logs"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsAuthenticated(false);
+                  sessionStorage.removeItem('bus_ledger_authenticated');
+                }}
+                className="p-2 bg-slate-50 border border-slate-150 rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100 transition-colors cursor-pointer"
+                title="Lock Terminal Console"
+              >
+                <Lock className="w-3.5 h-3.5" />
               </button>
             </div>
 
