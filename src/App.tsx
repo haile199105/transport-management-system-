@@ -5,8 +5,97 @@ import ManagerView from './components/ManagerView';
 import OwnerView from './components/OwnerView';
 import GlobalChat from './components/GlobalChat';
 import ItemComments from './components/ItemComments';
-import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle } from 'lucide-react';
+import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle, Database, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { isSupabaseConfigured, fetchLedgerFromSupabase, saveLedgerToSupabase } from './supabaseClient';
+
+const INITIAL_FALLBACK_STATE: LedgerState = {
+  previousNetIncome: 120000,
+  incomes: [
+    {
+      id: "inc-1",
+      date: "2026-06-01",
+      route: "Hawassa to Wolayta Sodo",
+      tripType: "One-Way",
+      amount: 18500,
+      passengers: 45,
+      description: "Full trip morning tickets",
+      comments: [
+        {
+          id: "c-1",
+          author: "Mr. Amare",
+          text: "Very good passenger count today. Let's maintain this.",
+          timestamp: "2026-06-01T14:30:00Z"
+        }
+      ]
+    },
+    {
+      id: "inc-2",
+      date: "2026-06-02",
+      route: "Hawassa to Butajira",
+      tripType: "Round-Trip",
+      amount: 14200,
+      passengers: 38,
+      description: "Afternoon express service",
+      comments: []
+    }
+  ],
+  costs: [
+    {
+      id: "cost-1",
+      date: "2026-06-01",
+      category: "Fuel",
+      amount: 6800,
+      description: "60 Liters Diesel fuel refilling",
+      comments: []
+    },
+    {
+      id: "cost-2",
+      date: "2026-06-01",
+      category: "Driver Food",
+      amount: 450,
+      description: "Lunch and water for driver and conductor",
+      comments: []
+    },
+    {
+      id: "cost-3",
+      date: "2026-06-02",
+      category: "Terminal & Station Cost",
+      amount: 800,
+      description: "Hawassa terminal exit tax and association fee",
+      comments: []
+    },
+    {
+      id: "cost-4",
+      date: "2026-06-03",
+      category: "Mechanical & Oil",
+      amount: 3200,
+      description: "Engine Oil replacement & filter clean",
+      comments: [
+        {
+          id: "c-2",
+          author: "Mr. Amare",
+          text: "Did you use the synthetic oil or regular? Synthetic lasts longer.",
+          timestamp: "2026-06-03T09:12:00Z"
+        },
+        {
+          id: "c-3",
+          author: "Mr. Haile",
+          text: "Yes, we purchased the Premium Synthetic grade oil. Next change matches 5000km.",
+          timestamp: "2026-06-03T11:45:00Z"
+        }
+      ]
+    }
+  ],
+  globalComments: [
+    {
+      id: "gc-1",
+      author: "Mr. Amare",
+      text: "Welcome to our new joint dashboard! Haile, always log fuel and driver daily pay immediately so we don't forget.",
+      timestamp: "2026-06-03T08:00:00Z"
+    }
+  ]
+};
 
 export default function App() {
   const [ledger, setLedger] = useState<LedgerState | null>(null);
@@ -37,12 +126,29 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
+      if (isSupabaseConfigured()) {
+        const data = await fetchLedgerFromSupabase();
+        if (data) {
+          setLedger(data);
+        } else {
+          // If Supabase is active but table state is blank, let's auto-seed it with initial state
+          await saveLedgerToSupabase(INITIAL_FALLBACK_STATE);
+          setLedger(INITIAL_FALLBACK_STATE);
+        }
+        return;
+      }
+
+      // Normal sandbox server mode fallback
       const res = await fetch('/api/ledger');
       if (!res.ok) throw new Error('Failed to retrieve ledger data');
       const data = await res.json();
       setLedger(data);
     } catch (err: any) {
-      setError(err?.message || 'Error occurred while connecting to database server.');
+      if (isSupabaseConfigured()) {
+        setError('Connected to Supabase but failed to read table. Ensure you created your "bus_ledger" table in Supabase SQL editor!');
+      } else {
+        setError(err?.message || 'Error occurred while connecting to database server.');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,6 +156,14 @@ export default function App() {
 
   const quietFetchLedger = async () => {
     try {
+      if (isSupabaseConfigured()) {
+        const data = await fetchLedgerFromSupabase();
+        if (data) {
+          setLedger(data);
+        }
+        return;
+      }
+
       const res = await fetch('/api/ledger');
       if (res.ok) {
         const data = await res.json();
@@ -70,7 +184,29 @@ export default function App() {
   };
 
   // API Call: Add Income
-  const handleAddIncome = async (entry: { date: string; route: string; amount: number; passengers?: number; description: string }) => {
+  const handleAddIncome = async (entry: { date: string; route: string; tripType?: 'One-Way' | 'Round-Trip'; amount: number; passengers?: number; description: string }) => {
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        incomes: [
+          ...ledger.incomes,
+          {
+            id: 'inc-' + Date.now(),
+            date: entry.date,
+            route: entry.route,
+            tripType: entry.tripType,
+            amount: entry.amount,
+            passengers: entry.passengers,
+            description: entry.description,
+            comments: []
+          }
+        ]
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      return;
+    }
+
     const res = await fetch('/api/ledger/income', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,6 +219,19 @@ export default function App() {
 
   // API Call: Delete Income
   const handleDeleteIncome = async (id: string) => {
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        incomes: ledger.incomes.filter(i => i.id !== id)
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      if (selectedTx?.id === id) {
+        setSelectedTx(null);
+      }
+      return;
+    }
+
     const res = await fetch(`/api/ledger/income/${id}`, {
       method: 'DELETE'
     });
@@ -96,6 +245,23 @@ export default function App() {
 
   // API Call: Add Cost
   const handleAddCost = async (entry: { date: string; category: CostCategory; amount: number; description: string }) => {
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        costs: [
+          ...ledger.costs,
+          {
+            id: 'cost-' + Date.now(),
+            ...entry,
+            comments: []
+          }
+        ]
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      return;
+    }
+
     const res = await fetch('/api/ledger/cost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -108,6 +274,19 @@ export default function App() {
 
   // API Call: Delete Cost
   const handleDeleteCost = async (id: string) => {
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        costs: ledger.costs.filter(c => c.id !== id)
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      if (selectedTx?.id === id) {
+        setSelectedTx(null);
+      }
+      return;
+    }
+
     const res = await fetch(`/api/ledger/cost/${id}`, {
       method: 'DELETE'
     });
@@ -121,6 +300,25 @@ export default function App() {
 
   // API Call: Add General / Global Comment memo
   const handleAddGlobalComment = async (text: string) => {
+    const author = activeRole === 'manager' ? 'Mr. Haile' : 'Mr. Amare';
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        globalComments: [
+          ...ledger.globalComments,
+          {
+            id: 'gc-' + Date.now(),
+            author,
+            text,
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      return;
+    }
+
     const res = await fetch('/api/ledger/comment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -137,6 +335,30 @@ export default function App() {
 
   // API Call: Add comment thread directly to a specific transaction
   const handleAddTxComment = async (targetType: 'income' | 'cost', targetId: string, text: string) => {
+    const author = activeRole === 'manager' ? 'Mr. Haile' : 'Mr. Amare';
+    
+    if (isSupabaseConfigured() && ledger) {
+      const newComment = {
+        id: 'c-' + Date.now(),
+        author,
+        text,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updated: LedgerState = {
+        ...ledger,
+        incomes: targetType === 'income' 
+          ? ledger.incomes.map(item => item.id === targetId ? { ...item, comments: [...item.comments, newComment] } : item)
+          : ledger.incomes,
+        costs: targetType === 'cost'
+          ? ledger.costs.map(item => item.id === targetId ? { ...item, comments: [...item.comments, newComment] } : item)
+          : ledger.costs
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      return;
+    }
+
     const res = await fetch('/api/ledger/comment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -154,6 +376,16 @@ export default function App() {
 
   // API Call: Save accumulated Previous Balance Net Income setting
   const handleUpdatePreviousIncome = async (amount: number) => {
+    if (isSupabaseConfigured() && ledger) {
+      const updated: LedgerState = {
+        ...ledger,
+        previousNetIncome: amount
+      };
+      const saved = await saveLedgerToSupabase(updated);
+      setLedger(saved);
+      return;
+    }
+
     const res = await fetch('/api/ledger/previous-income', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -167,6 +399,13 @@ export default function App() {
   // Reset database state (helps test from scratch with sample parameters)
   const handleResetData = async () => {
     if (window.confirm('Are you sure you want to reset ledger logs to sample demo entries?')) {
+      if (isSupabaseConfigured()) {
+        const saved = await saveLedgerToSupabase(INITIAL_FALLBACK_STATE);
+        setLedger(saved);
+        setSelectedTx(null);
+        return;
+      }
+
       const res = await fetch('/api/ledger/reset', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
@@ -187,6 +426,7 @@ export default function App() {
   };
 
   const selectedTxObj = getSelectedTxObject();
+
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16 flex flex-col">
@@ -236,10 +476,17 @@ export default function App() {
 
             {/* Sync Refresh controls */}
             <div className="flex items-center gap-2">
-              <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold px-2.5 py-1 rounded-lg">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                Live Sync
-              </span>
+              {isSupabaseConfigured() ? (
+                <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-150 font-semibold px-2.5 py-1 rounded-lg">
+                  <Database className="w-3 h-3 text-indigo-500" />
+                  Supabase Cloud (Connected)
+                </span>
+              ) : (
+                <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold px-2.5 py-1 rounded-lg">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                  Dev Sandbox
+                </span>
+              )}
 
               <button
                 onClick={triggerRefresh}
