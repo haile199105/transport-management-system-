@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LedgerState, IncomeEntry, CostEntry, CostCategory } from '../types';
 import { Search, Filter, MessageSquare, ChevronRight, Bus, AlertCircle, FileText, CheckCircle2, TrendingUp, HelpCircle, Download, Printer, ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatGregorianToEthiopian } from '../utils/ethiopianCalendar';
 
 interface OwnerViewProps {
   ledger: LedgerState;
@@ -58,7 +59,7 @@ export default function OwnerView({ ledger, onSelectTransaction }: OwnerViewProp
     incomesToExport.forEach(item => {
       const hasUncleComment = item.comments.some(c => c.author === 'Mr. Amare' || c.author === 'Owner (Uncle)') ? 'Reviewed' : 'Pending Review';
       rows.push([
-        item.date,
+        formatGregorianToEthiopian(item.date, 'short'),
         'Income (Tickets)',
         item.route,
         item.amount.toString(),
@@ -70,7 +71,7 @@ export default function OwnerView({ ledger, onSelectTransaction }: OwnerViewProp
     costsToExport.forEach(item => {
       const hasUncleComment = item.comments.some(c => c.author === 'Mr. Amare' || c.author === 'Owner (Uncle)') ? 'Reviewed' : 'Pending Review';
       rows.push([
-        item.date,
+        formatGregorianToEthiopian(item.date, 'short'),
         `Expense (${item.category})`,
         item.category,
         item.amount.toString(),
@@ -225,7 +226,7 @@ export default function OwnerView({ ledger, onSelectTransaction }: OwnerViewProp
                     </p>
                   </div>
                   <div className="text-left md:text-right font-mono text-xs text-slate-500 space-y-1">
-                    <p><strong>System Date:</strong> 2026-06-04</p>
+                    <p><strong>System Date:</strong> {formatGregorianToEthiopian('2026-06-04', 'long')} / {formatGregorianToEthiopian('2026-06-04', 'amharic')} ({formatGregorianToEthiopian('2026-06-04', 'short')} EC)</p>
                     <p><strong>Manager:</strong> Mr. Haile (Hawassa Terminal)</p>
                     <p><strong>Primary Auditor:</strong> Mr. Amare (AA Headquarters)</p>
                     <p><strong>Version:</strong> Supabase Connected v2.0</p>
@@ -298,7 +299,7 @@ export default function OwnerView({ ledger, onSelectTransaction }: OwnerViewProp
                         const approval = item.comments.some(c => c.author === 'Owner (Uncle)') ? 'Reviewed' : 'Pending';
                         return (
                           <tr key={item.id} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-2.5 font-mono text-[11px] text-slate-600">{item.date}</td>
+                            <td className="px-4 py-2.5 font-mono text-[11px] font-bold text-slate-750">{formatGregorianToEthiopian(item.date, 'short')}</td>
                             <td className="px-4 py-2.5">
                               <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
                                 isInc ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
@@ -519,8 +520,8 @@ export default function OwnerView({ ledger, onSelectTransaction }: OwnerViewProp
                   <div className="space-y-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                          {entry.date}
+                        <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full" title={`Gregorian: ${entry.date}`}>
+                          {formatGregorianToEthiopian(entry.date, 'short')} EC ({formatGregorianToEthiopian(entry.date, 'amharic')})
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                           isIncome ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'

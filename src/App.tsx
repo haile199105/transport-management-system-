@@ -5,10 +5,11 @@ import ManagerView from './components/ManagerView';
 import OwnerView from './components/OwnerView';
 import GlobalChat from './components/GlobalChat';
 import ItemComments from './components/ItemComments';
-import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle, Database, CheckCircle, Lock } from 'lucide-react';
+import { Bus, RefreshCw, UserCheck, Shield, BookOpen, AlertCircle, HelpCircle, Database, CheckCircle, Lock, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isSupabaseConfigured, fetchLedgerFromSupabase, saveLedgerToSupabase } from './supabaseClient';
 import PINOverlay from './components/PINOverlay';
+import { formatGregorianToEthiopian, getTodayGregorianStr } from './utils/ethiopianCalendar';
 
 const INITIAL_FALLBACK_STATE: LedgerState = {
   previousNetIncome: 120000,
@@ -109,6 +110,9 @@ export default function App() {
 
   // Active Role can be toggled by the user in this preview workspace
   const [activeRole, setActiveRole] = useState<'manager' | 'owner'>('manager');
+
+  // Multi-tab layout state
+  const [activeTab, setActiveTab] = useState<'console' | 'history'>('console');
 
   // Currently focused transaction for deep comment audits
   const [selectedTx, setSelectedTx] = useState<{ type: 'income' | 'cost'; id: string } | null>(null);
@@ -587,24 +591,101 @@ export default function App() {
               role={activeRole}
             />
 
-            {/* Split layout: Activity Forms & Lists VS Global Chat noticedboard */}
+            {/* Clean, Elegant Navigation Tabs Switcher */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="flex gap-2">
+                <button
+                  id="tab-console"
+                  onClick={() => setActiveTab('console')}
+                  className={`px-4.5 py-2.5 rounded-xl text-xs font-display font-extrabold transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'console'
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                  <span>Active Console</span>
+                </button>
+                <button
+                  id="tab-history"
+                  onClick={() => setActiveTab('history')}
+                  className={`px-4.5 py-2.5 rounded-xl text-xs font-display font-extrabold transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'history'
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <ClipboardList className="w-4 h-4 text-indigo-400" />
+                  <span>History & Records</span>
+                </button>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 border border-slate-100 px-3.5 py-1.5 rounded-xl">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span>Ethiopian Year: {formatGregorianToEthiopian(getTodayGregorianStr(), 'long')}</span>
+              </div>
+            </div>
+
+            {/* Split layout: Activity Forms/History VS Global Chat noticeboard */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
               
               <div className="xl:col-span-8">
-                {activeRole === 'manager' ? (
-                  <ManagerView
-                    ledger={ledger}
-                    onAddIncome={handleAddIncome}
-                    onDeleteIncome={handleDeleteIncome}
-                    onAddCost={handleAddCost}
-                    onDeleteCost={handleDeleteCost}
-                    onSelectTransaction={(type, id) => setSelectedTx({ type, id })}
-                  />
+                {activeTab === 'console' ? (
+                  activeRole === 'manager' ? (
+                    <ManagerView
+                      ledger={ledger}
+                      viewMode="forms"
+                      onAddIncome={handleAddIncome}
+                      onDeleteIncome={handleDeleteIncome}
+                      onAddCost={handleAddCost}
+                      onDeleteCost={handleDeleteCost}
+                      onSelectTransaction={(type, id) => setSelectedTx({ type, id })}
+                    />
+                  ) : (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 animate-fade-in">
+                      <div className="flex items-center gap-2.5 text-indigo-600">
+                        <Shield className="w-5 h-5" />
+                        <h3 className="font-display font-extrabold text-sm text-slate-800">Mr. Amare's Auditing Console</h3>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Welcome to the **Active Console** view. This interface is the daily workspace where terminal managers record passengers and daily vehicle debits in Hawassa.
+                      </p>
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4.5 space-y-2">
+                        <h4 className="text-xs font-bold text-slate-700">Owner Audit Directives:</h4>
+                        <ul className="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
+                          <li>Switch to the <strong className="text-indigo-600 underline">History & Records</strong> tab above to search, filter, and print the official cumulative balance sheets or pull audits.</li>
+                          <li>Tapping on individual transactions inside the ledger permits leaving feedback comments instantly sync'd with Hawassa terminal.</li>
+                          <li>You can use the real-time <strong className="text-slate-800 font-medium">Global Discussion Noticeboard</strong> on the right to post general comments to Mr. Haile.</li>
+                        </ul>
+                      </div>
+                      <div className="pt-1.5 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('history')}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                          <span>Switch to History & Records</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
                 ) : (
-                  <OwnerView
-                    ledger={ledger}
-                    onSelectTransaction={(type, id) => setSelectedTx({ type, id })}
-                  />
+                  activeRole === 'manager' ? (
+                    <ManagerView
+                      ledger={ledger}
+                      viewMode="list"
+                      onAddIncome={handleAddIncome}
+                      onDeleteIncome={handleDeleteIncome}
+                      onAddCost={handleAddCost}
+                      onDeleteCost={handleDeleteCost}
+                      onSelectTransaction={(type, id) => setSelectedTx({ type, id })}
+                    />
+                  ) : (
+                    <OwnerView
+                      ledger={ledger}
+                      onSelectTransaction={(type, id) => setSelectedTx({ type, id })}
+                    />
+                  )
                 )}
               </div>
 

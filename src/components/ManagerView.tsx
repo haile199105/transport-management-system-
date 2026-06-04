@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { LedgerState, IncomeEntry, CostEntry, CostCategory } from '../types';
 import { PlusCircle, MinusCircle, Trash2, Calendar, MapPin, Tag, Users, FileText, ChevronRight, MessageSquare, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import EthiopianDatePicker from './EthiopianDatePicker';
+import { formatGregorianToEthiopian, getTodayGregorianStr } from '../utils/ethiopianCalendar';
 
 interface ManagerViewProps {
   ledger: LedgerState;
@@ -10,6 +12,7 @@ interface ManagerViewProps {
   onAddCost: (entry: { date: string; category: CostCategory; amount: number; description: string }) => Promise<void>;
   onDeleteCost: (id: string) => Promise<void>;
   onSelectTransaction: (type: 'income' | 'cost', id: string) => void;
+  viewMode?: 'forms' | 'list' | 'all';
 }
 
 export default function ManagerView({
@@ -18,12 +21,13 @@ export default function ManagerView({
   onDeleteIncome,
   onAddCost,
   onDeleteCost,
-  onSelectTransaction
+  onSelectTransaction,
+  viewMode = 'all'
 }: ManagerViewProps) {
   const [activeFormTab, setActiveFormTab] = useState<'income' | 'cost'>('income');
   
   // Income Form State
-  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().split('T')[0]);
+  const [incomeDate, setIncomeDate] = useState(getTodayGregorianStr());
   const [incomeRouteDropdown, setIncomeRouteDropdown] = useState('Hawassa to Wolayta Sodo');
   const [incomeRouteCustom, setIncomeRouteCustom] = useState('');
   const [incomeTripType, setIncomeTripType] = useState<'One-Way' | 'Round-Trip'>('One-Way');
@@ -32,7 +36,7 @@ export default function ManagerView({
   const [incomeDesc, setIncomeDesc] = useState('');
   
   // Cost Form State
-  const [costDate, setCostDate] = useState(new Date().toISOString().split('T')[0]);
+  const [costDate, setCostDate] = useState(getTodayGregorianStr());
   const [costCategory, setCostCategory] = useState<CostCategory>('Fuel');
   const [costAmount, setCostAmount] = useState('');
   const [costDesc, setCostDesc] = useState('');
@@ -131,10 +135,21 @@ export default function ManagerView({
     }).format(num).replace('ETB', 'Br');
   };
 
+  const showForms = viewMode === 'all' || viewMode === 'forms';
+  const showList = viewMode === 'all' || viewMode === 'list';
+
   return (
-    <div id="manager-interface" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Forms Segment (5 columns on desktop) */}
-      <div className="lg:col-span-5 space-y-4">
+    <div
+      id="manager-interface"
+      className={
+        viewMode === 'all'
+          ? "grid grid-cols-1 lg:grid-cols-12 gap-6"
+          : "w-full"
+      }
+    >
+      {/* Forms Segment */}
+      {showForms && (
+        <div className={viewMode === 'forms' ? "max-w-2xl mx-auto space-y-4 animate-fade-in" : "lg:col-span-5 space-y-4"}>
         {/* Personalized header for Mr. Haile */}
         <div className="bg-slate-900 text-white p-4.5 rounded-2xl border border-slate-800 shadow-sm">
           <span className="text-[9px] uppercase tracking-widest font-extrabold text-emerald-400 font-mono">Terminal Console</span>
@@ -195,14 +210,12 @@ export default function ManagerView({
                 {/* Date Input */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date (Ethiopian Calendar)
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <EthiopianDatePicker
                     value={incomeDate}
-                    onChange={(e) => setIncomeDate(e.target.value)}
-                    className="w-full text-sm px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white"
+                    onChange={(val) => setIncomeDate(val)}
+                    accentColor="emerald"
                   />
                 </div>
 
@@ -333,14 +346,12 @@ export default function ManagerView({
                 {/* Date Input */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date (Ethiopian Calendar)
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <EthiopianDatePicker
                     value={costDate}
-                    onChange={(e) => setCostDate(e.target.value)}
-                    className="w-full text-sm px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                    onChange={(val) => setCostDate(val)}
+                    accentColor="rose"
                   />
                 </div>
 
@@ -409,10 +420,12 @@ export default function ManagerView({
             )}
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
-      {/* Lists Segment (7 columns on desktop) */}
-      <div id="manager-ledger-list" className="lg:col-span-7 space-y-4">
+      {/* Lists Segment */}
+      {showList && (
+        <div id="manager-ledger-list" className={viewMode === 'list' ? "w-full space-y-4 animate-fade-in" : "lg:col-span-7 space-y-4"}>
         {/* Ledger Title */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-3">
           <div>
@@ -458,8 +471,8 @@ export default function ManagerView({
                           onClick={() => onSelectTransaction(entry.type, entry.id)}
                         >
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">
-                              {entry.date}
+                            <span className="text-[10px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold" title={`Gregorian: ${entry.date}`}>
+                              {formatGregorianToEthiopian(entry.date, 'short')} EC ({formatGregorianToEthiopian(entry.date, 'amharic')})
                             </span>
                             
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
@@ -548,6 +561,7 @@ export default function ManagerView({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

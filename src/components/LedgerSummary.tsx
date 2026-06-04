@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LedgerState, CostCategory } from '../types';
 import { TrendingUp, TrendingDown, DollarSign, Wallet, Calendar, Edit2, Check, X, Info } from 'lucide-react';
 import { motion } from 'motion/react';
+import { formatGregorianToEthiopian, getTodayGregorianStr } from '../utils/ethiopianCalendar';
 
 interface LedgerSummaryProps {
   ledger: LedgerState;
@@ -328,8 +329,8 @@ export default function LedgerSummary({ ledger, onUpdatePreviousIncome, role }: 
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 text-center border-t border-slate-50 pt-3 mt-4">
-            Last updated: {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          <div className="text-[11px] text-slate-400 text-center border-t border-slate-50 pt-3 mt-4 font-medium">
+            Last updated: {formatGregorianToEthiopian(getTodayGregorianStr(), 'long')} EC ({formatGregorianToEthiopian(getTodayGregorianStr(), 'amharic')})
           </div>
         </div>
       </div>
